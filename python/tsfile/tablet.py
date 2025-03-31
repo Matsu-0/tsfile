@@ -47,6 +47,7 @@ class Tablet(object):
         ]
         self.target_name = None
         self.column_name_list = column_name_list
+        column_name_list_back = [name.lower() for name in column_name_list]
         self.type_list = type_list
         self.max_row_num = max_row_num
 
@@ -98,7 +99,10 @@ class Tablet(object):
         self.timestamp_list = timestamp_list
 
     def add_timestamp(self, row_index: int, timestamp: int):
+        if timestamp in self.timestamp_list:
+            print("Warning: timestamp already in use")
         self.timestamp_list[row_index] = timestamp
+
 
     def _check_numeric_range(self, value: Union[int, float], data_type: TSDataType):
         if math.isnan(value) or math.isinf(value):

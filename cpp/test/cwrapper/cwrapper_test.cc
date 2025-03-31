@@ -184,4 +184,65 @@ TEST_F(CWrapperTest, WriterFlushTabletAndReadData) {
     free_write_file(&file);
 
 }
+
+TEST_F(CWrapperTest, SimpleTest) {
+    TableSchema schema;
+    ERRNO code = 0;
+    schema.table_name = strdup("testtable0");
+    schema.column_num = 3;
+    schema.column_schemas =
+        static_cast<ColumnSchema*>(malloc(3 * sizeof(ColumnSchema)));
+    schema.column_schemas[0].column_name = strdup("device_id");
+    schema.column_schemas[0].column_category = TAG;
+    schema.column_schemas[0].data_type = TS_DATATYPE_STRING;
+    schema.column_schemas[1].column_name = strdup("Value");
+    schema.column_schemas[1].column_category = FIELD;
+    schema.column_schemas[1].data_type = TS_DATATYPE_FLOAT;
+    schema.column_schemas[2].column_name = strdup("Flags");
+    schema.column_schemas[2].column_category = FIELD;
+    schema.column_schemas[2].data_type = TS_DATATYPE_BOOLEAN;
+
+    remove("cwrapper_write_flush_and_read.tsfile");
+    TsFileWriter writer = _tsfile_writer_new("cwrapper_write_flush_and_read.tsfile", &code);
+    code = _tsfile_writer_register_table(writer, &schema);
+    ASSERT_EQ(code, RET_OK);
+
+    char** column_names =
+        static_cast<char**>(malloc(3 * sizeof(char*)));
+    TSDataType* data_types =
+        static_cast<TSDataType*>(malloc(sizeof(TSDataType) * 3));
+    column_names[0] = strdup("device_id");
+    column_names[1] = strdup("Value");
+    column_names[2] = strdup("Flags");
+    data_types[0] = TS_DATATYPE_STRING;
+    data_types[1] = TS_DATATYPE_FLOAT;
+    data_types[2] = TS_DATATYPE_BOOLEAN;
+
+    int time = 0;
+    for (int tablet_id = 0; tablet_id < 20; tablet_id++) {
+        Tablet tablet = _tablet_new_with_target_name("testtable0", column_names, data_types, 3, 1000);
+        for (int i = 0; i < 1000; i++) {
+            tablet_add_timestamp(tablet, i, time++);
+            tablet_add_value_by_name_string(tablet, i, "device_id", std::string("sensor"+ std::to_string(tablet_id)).c_str());
+            tablet_add_value_by_name_float(tablet, i, "Value", time* 1.1);
+            tablet_add_value_by_name_bool(tablet, i, "Flags", true);
+        }
+        code = _tsfile_writer_write_table(writer, tablet);
+        ASSERT_EQ(code, RET_OK);
+    }
+
+
+    ASSERT_EQ(_tsfile_writer_close(writer), 0);
+
+
+    TsFileReader reader = tsfile_reader_new("cwrapper_write_flush_and_read.tsfile", &code);
+    ResultSet result_set = tsfile_query_table(reader, "testtable0", column_names, 3, INT64_MIN, INT64_MAX, &code);
+    while (tsfile_result_set_next(result_set, &code) && code == RET_OK) {
+        std::cout << tsfile_result_set_get_value_by_name_float(result_set, "Value");
+    }
+    free_tsfile_result_set(&result_set);
+    tsfile_reader_close(reader);
+}
+
+
 }  // namespace cwrapper

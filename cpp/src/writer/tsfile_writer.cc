@@ -703,6 +703,15 @@ int TsFileWriter::write_tablet(const Tablet &tablet) {
 
 int TsFileWriter::write_table(Tablet &tablet) {
     int ret = E_OK;
+    std::cout<<"Tablet target name is " << tablet.insert_target_name_<<std::endl;
+    for (int i = 0 ; i < tablet.get_column_count(); i++) {
+        std::cout<<"column is " << tablet.get_column_name(i) <<std::endl;
+    }
+    std::cout<<"time value is " << std::endl;
+    for (int i = 0 ; i < tablet.get_cur_row_size();i++) {
+        std::cout<<tablet.timestamps_[i] << std::endl;
+    }
+
     if (io_writer_->get_schema()->table_schema_map_.find(
             tablet.insert_target_name_) ==
         io_writer_->get_schema()->table_schema_map_.end()) {

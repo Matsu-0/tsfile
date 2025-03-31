@@ -293,9 +293,13 @@ ResultSet tsfile_query_table(TsFileReader reader, const char *table_name,
     std::vector<std::string> column_names;
     for (uint32_t i = 0; i < column_num; i++) {
         column_names.emplace_back(columns[i]);
+        std::cout<<"begin to query" << columns[i]<<std::endl;
     }
+    std::cout<<"begin and end"<< start_time << "\t" << end_time<<std::endl;
     *err_code = r->query(table_name, column_names, start_time, end_time,
                          table_result_set);
+    std::cout << "result is null ?" << (table_result_set == nullptr) << std::endl;
+
     return table_result_set;
 }
 
@@ -305,6 +309,7 @@ bool tsfile_result_set_next(ResultSet result_set, ERRNO *err_code) {
     int ret = common::E_OK;
     ret = r->next(has_next);
     *err_code = ret;
+    std::cout<<"has next ?, ret is ?"<<has_next<< " "<< ret<<std::endl;
     if (ret != common::E_OK) {
         return false;
     }
@@ -603,14 +608,14 @@ ERRNO _tsfile_writer_register_table(TsFileWriter writer, TableSchema *schema) {
     for (int i = 0; i < schema->column_num; i++) {
         ColumnSchema *cur_schema = schema->column_schemas + i;
         measurement_schemas[i] = new storage::MeasurementSchema(
-            cur_schema->column_name,
+            storage::to_lower(cur_schema->column_name),
             static_cast<common::TSDataType>(cur_schema->data_type));
         column_categories.push_back(
             static_cast<common::ColumnCategory>(cur_schema->column_category));
     }
     auto tsfile_writer = static_cast<storage::TsFileWriter *>(writer);
     return tsfile_writer->register_table(std::make_shared<storage::TableSchema>(
-        schema->table_name, measurement_schemas, column_categories));
+        storage::to_lower(schema->table_name), measurement_schemas, column_categories));
 }
 
 ERRNO _tsfile_writer_register_timeseries(TsFileWriter writer,
@@ -654,9 +659,23 @@ ERRNO _tsfile_writer_write_tablet(TsFileWriter writer, Tablet tablet) {
     return w->write_tablet(*tbl);
 }
 
-ERRNO _tsfile_writer_write_table(TsFileWriter writer, Tablet tablet) {
+    ERRNO _tsfile_writer_write_table(TsFileWriter writer, Tablet tablet) {
     auto *w = static_cast<storage::TsFileWriter *>(writer);
     auto *tbl = static_cast<storage::Tablet *>(tablet);
+
+    tbl->set_table_name(storage::to_lower(tbl->get_table_name()));
+    for (int i = 0; i < tbl->get_column_count(); i++) {
+        tbl->set_column_name(i, storage::to_lower(tbl->get_column_name(i)));
+    }
+
+    auto schema_map = tbl->get_schema_map();
+    std::map<std::string, int> schema_map_;
+    for (auto iter = schema_map.begin(); iter != schema_map.end(); iter++) {
+        schema_map_[storage::to_lower(iter->first)] = iter->second;
+    }
+    tbl->set_schema_map(schema_map_);
+
+
     return w->write_table(*tbl);
 }
 
